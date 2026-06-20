@@ -7,6 +7,17 @@
     "predeploy": [
       "cp index.html app.js style.css firebase-config.js public/"
     ],
+    "headers": [
+      {
+        "source": "**/*.@(html|js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ],
     "ignore": [
       "firebase.json",
       "**/.*",
