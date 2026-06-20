@@ -10,9 +10,12 @@ body{font-family:system-ui,-apple-system,Helvetica,Arial;padding:16px;background
 .header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .header h1{margin:0;font-size:1.25rem}
 .today{color:var(--muted)}
+.status{margin-top:4px;color:var(--muted);font-size:.8rem;text-align:right}
+.status.error{color:#c62828}
 .input-area{display:flex;gap:8px;margin:16px 0}
 input[type="text"]{flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem}
 button{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:6px;cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
 button:active{transform:translateY(1px)}
 .list-section{background:var(--card);padding:12px;border-radius:8px;border:1px solid #eee}
 .task-list{list-style:none;padding:0;margin:0}

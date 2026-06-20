@@ -10,7 +10,10 @@
   <main class="container">
     <header class="header">
       <h1>今日のチェックリスト</h1>
-      <div id="today" class="today"></div>
+      <div>
+        <div id="today" class="today"></div>
+        <div id="status" class="status">Firebase に接続中...</div>
+      </div>
     </header>
 
     <section class="input-area">
@@ -24,6 +27,6 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

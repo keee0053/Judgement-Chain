@@ -1,10 +1,21 @@
-// 毎日チェックリストの主要ロジック
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc
+} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
 
-// localStorage のキー
-const STORAGE_KEYS = {
-  tasks: 'dailycheck_tasks',
-  dailyChecks: 'dailycheck_dailyChecks'
-};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const tasksRef = collection(db, 'tasks');
+const dailyChecksRef = collection(db, 'dailyChecks');
 
 // DOM 要素
 const taskInput = document.getElementById('taskInput');
@@ -12,18 +23,22 @@ const addBtn = document.getElementById('addBtn');
 const taskList = document.getElementById('taskList');
 const emptyMessage = document.getElementById('emptyMessage');
 const todayEl = document.getElementById('today');
+const statusEl = document.getElementById('status');
 
 // アプリの状態
 let tasks = [];
 let dailyChecks = {}; // { 'YYYY-MM-DD': {taskId: true, ...}, ... }
 let currentDate = getToday();
+let unsubscribeTasks = null;
+let unsubscribeChecks = null;
 
 // 初期化
 function init(){
-  loadState();
   renderDate();
   renderTasks();
   attachEvents();
+  subscribeTasks();
+  subscribeDailyChecks();
   // 日付が変わったか定期チェック（12秒ごと）
   setInterval(checkDateChange, 12000);
 }
@@ -37,64 +52,74 @@ function getToday(){
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// ストレージ読み書き
-function loadState(){
-  try{
-    const t = localStorage.getItem(STORAGE_KEYS.tasks);
-    const c = localStorage.getItem(STORAGE_KEYS.dailyChecks);
-    tasks = t ? JSON.parse(t) : [];
-    dailyChecks = c ? JSON.parse(c) : {};
-  }catch(e){
-    tasks = [];
-    dailyChecks = {};
-  }
+function setStatus(message, isError = false){
+  statusEl.textContent = message;
+  statusEl.classList.toggle('error', isError);
 }
 
-function saveTasks(){
-  localStorage.setItem(STORAGE_KEYS.tasks, JSON.stringify(tasks));
+function subscribeTasks(){
+  const tasksQuery = query(tasksRef, orderBy('createdAt', 'asc'));
+  unsubscribeTasks = onSnapshot(tasksQuery, snapshot => {
+    tasks = snapshot.docs.map(taskDoc => ({
+      id: taskDoc.id,
+      ...taskDoc.data()
+    }));
+    renderTasks();
+    setStatus('Firebase に保存中');
+  }, error => {
+    console.error(error);
+    setStatus('Firebase の読み込みに失敗しました', true);
+  });
 }
 
-function saveDailyChecks(){
-  localStorage.setItem(STORAGE_KEYS.dailyChecks, JSON.stringify(dailyChecks));
+function subscribeDailyChecks(){
+  if(unsubscribeChecks) unsubscribeChecks();
+
+  const todayDocRef = doc(dailyChecksRef, currentDate);
+  unsubscribeChecks = onSnapshot(todayDocRef, snapshot => {
+    dailyChecks[currentDate] = snapshot.exists() ? snapshot.data() : {};
+    renderTasks();
+    setStatus('Firebase に保存中');
+  }, error => {
+    console.error(error);
+    setStatus('Firebase の読み込みに失敗しました', true);
+  });
 }
 
 // タスク追加（空白のみの入力を防ぐ）
-function addTask(title){
+async function addTask(title){
   const trimmed = title.trim();
   if(!trimmed) return false;
   const id = `t-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-  const task = {id, title: trimmed, createdAt: new Date().toISOString()};
-  tasks.push(task);
-  saveTasks();
-  renderTasks();
+  const task = {
+    title: trimmed,
+    createdAt: serverTimestamp()
+  };
+  await setDoc(doc(tasksRef, id), task);
   return true;
 }
 
 // タスク削除（確認ダイアログ）
-function deleteTask(id){
+async function deleteTask(id){
   const task = tasks.find(t=>t.id===id);
   if(!task) return;
   const ok = confirm(`タスク「${task.title}」を削除しますか？`);
   if(!ok) return;
-  tasks = tasks.filter(t=>t.id!==id);
-  // dailyChecks の該当タスクキーを全日付から削除
-  Object.keys(dailyChecks).forEach(date => {
-    if(dailyChecks[date] && dailyChecks[date][id] !== undefined){
-      delete dailyChecks[date][id];
-    }
-  });
-  saveTasks();
-  saveDailyChecks();
-  renderTasks();
+  await deleteDoc(doc(tasksRef, id));
+
+  const today = getToday();
+  const checks = {...(dailyChecks[today] || {})};
+  delete checks[id];
+  await setDoc(doc(dailyChecksRef, today), checks);
 }
 
 // チェックの切替
-function toggleCheck(id){
+async function toggleCheck(id){
   const today = getToday();
   if(!dailyChecks[today]) dailyChecks[today] = {};
   dailyChecks[today][id] = !dailyChecks[today][id];
-  saveDailyChecks();
   renderTasks();
+  await setDoc(doc(dailyChecksRef, today), dailyChecks[today]);
 }
 
 // 表示レンダリング
@@ -106,8 +131,7 @@ function renderDate(){
 
 function renderTasks(){
   // 今日のチェック状態を取得
-  const today = getToday();
-  const checks = dailyChecks[today] || {};
+  const checks = dailyChecks[currentDate] || {};
 
   taskList.innerHTML = '';
   if(tasks.length === 0){
@@ -124,7 +148,16 @@ function renderTasks(){
     checkbox.type = 'checkbox';
     checkbox.checked = !!checks[task.id];
     checkbox.setAttribute('aria-label', `タスク ${task.title} のチェック`);
-    checkbox.addEventListener('change', ()=> toggleCheck(task.id));
+    checkbox.addEventListener('change', async ()=> {
+      checkbox.disabled = true;
+      try{
+        await toggleCheck(task.id);
+      }catch(error){
+        console.error(error);
+        setStatus('チェックの保存に失敗しました', true);
+        renderTasks();
+      }
+    });
 
     const title = document.createElement('div');
     title.className = 'task-title' + (checkbox.checked ? ' done' : '');
@@ -134,7 +167,16 @@ function renderTasks(){
     del.className = 'delete-btn';
     del.textContent = '削除';
     del.setAttribute('aria-label', `タスク ${task.title} を削除`);
-    del.addEventListener('click', ()=> deleteTask(task.id));
+    del.addEventListener('click', async ()=> {
+      del.disabled = true;
+      try{
+        await deleteTask(task.id);
+      }catch(error){
+        console.error(error);
+        setStatus('タスクの削除に失敗しました', true);
+        del.disabled = false;
+      }
+    });
 
     li.appendChild(checkbox);
     li.appendChild(title);
@@ -149,26 +191,30 @@ function checkDateChange(){
   if(today !== currentDate){
     currentDate = today;
     renderDate();
+    subscribeDailyChecks();
     renderTasks(); // 今日のチェック状態が切り替わる
   }
 }
 
 // イベントの紐付け
 function attachEvents(){
-  addBtn.addEventListener('click', ()=>{
-    if(addTask(taskInput.value)) taskInput.value = '';
-  });
-
-  taskInput.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
-      if(addTask(taskInput.value)) taskInput.value = '';
+  addBtn.addEventListener('click', async ()=>{
+    addBtn.disabled = true;
+    try{
+      if(await addTask(taskInput.value)) taskInput.value = '';
+    }catch(error){
+      console.error(error);
+      setStatus('タスクの追加に失敗しました', true);
+    }finally{
+      addBtn.disabled = false;
+      taskInput.focus();
     }
   });
 
-  // ページ再表示やフォーカス時にも最新の状態にする
-  window.addEventListener('focus', ()=>{
-    loadState();
-    renderTasks();
+  taskInput.addEventListener('keydown', async (e)=>{
+    if(e.key === 'Enter'){
+      addBtn.click();
+    }
   });
 }
 
