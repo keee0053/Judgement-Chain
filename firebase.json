@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "public": "public",
+    "predeploy": [
+      "cp index.html app.js style.css firebase-config.js public/"
+    ],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
