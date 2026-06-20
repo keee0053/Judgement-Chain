@@ -9,6 +9,10 @@
 - `firebase-config.js` — Firebase Web アプリの設定
 
 ## Firebase 設定
+Firebase Console:
+- プロジェクト概要: https://console.firebase.google.com/project/judgment-chain/overview
+- Firestore: https://console.firebase.google.com/project/judgment-chain/firestore
+
 1. Firebase Console でプロジェクトを作成する。
 2. Web アプリを追加して、表示された Firebase config を `firebase-config.js` に貼り付ける。
 3. Firestore Database を作成する。
