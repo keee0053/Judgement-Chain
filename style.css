@@ -1,0 +1,30 @@
+:root{
+  --bg:#fafafa;
+  --card:#fff;
+  --accent:#1976d2;
+  --muted:#666;
+}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Helvetica,Arial;padding:16px;background:var(--bg);color:#111}
+.container{max-width:720px;margin:0 auto}
+.header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.header h1{margin:0;font-size:1.25rem}
+.today{color:var(--muted)}
+.input-area{display:flex;gap:8px;margin:16px 0}
+input[type="text"]{flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem}
+button{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:6px;cursor:pointer}
+button:active{transform:translateY(1px)}
+.list-section{background:var(--card);padding:12px;border-radius:8px;border:1px solid #eee}
+.task-list{list-style:none;padding:0;margin:0}
+.task-item{display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid #f3f3f3}
+.task-item:last-child{border-bottom:none}
+.task-title{flex:1}
+.task-title.done{text-decoration:line-through;color:var(--muted)}
+.delete-btn{background:#eee;border:none;padding:6px 8px;border-radius:6px;cursor:pointer}
+.empty{color:var(--muted);padding:12px;text-align:center}
+
+@media (max-width:480px){
+  .header h1{font-size:1rem}
+  input[type="text"]{padding:8px}
+  button{padding:8px}
+}

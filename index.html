@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>毎日チェックリスト</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>今日のチェックリスト</h1>
+      <div id="today" class="today"></div>
+    </header>
+
+    <section class="input-area">
+      <input id="taskInput" type="text" aria-label="タスク名入力" placeholder="タスク名を入力" />
+      <button id="addBtn" aria-label="タスクを追加">追加</button>
+    </section>
+
+    <section id="listSection" class="list-section">
+      <ul id="taskList" class="task-list" aria-live="polite"></ul>
+      <div id="emptyMessage" class="empty">タスクを追加してください</div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
