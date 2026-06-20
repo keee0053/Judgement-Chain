@@ -1,5 +1,12 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut
+} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+import {
   collection,
   deleteDoc,
   doc,
@@ -13,9 +20,9 @@ import {
 import { firebaseConfig } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
-const tasksRef = collection(db, 'tasks');
-const dailyChecksRef = collection(db, 'dailyChecks');
 
 // DOM 要素
 const taskInput = document.getElementById('taskInput');
@@ -24,21 +31,25 @@ const taskList = document.getElementById('taskList');
 const emptyMessage = document.getElementById('emptyMessage');
 const todayEl = document.getElementById('today');
 const statusEl = document.getElementById('status');
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const userInfo = document.getElementById('userInfo');
 
 // アプリの状態
 let tasks = [];
 let dailyChecks = {}; // { 'YYYY-MM-DD': {taskId: true, ...}, ... }
 let currentDate = getToday();
+let currentUser = null;
 let unsubscribeTasks = null;
 let unsubscribeChecks = null;
 
 // 初期化
 function init(){
   renderDate();
+  setTaskControls(false);
   renderTasks();
   attachEvents();
-  subscribeTasks();
-  subscribeDailyChecks();
+  subscribeAuth();
   // 日付が変わったか定期チェック（12秒ごと）
   setInterval(checkDateChange, 12000);
 }
@@ -57,8 +68,63 @@ function setStatus(message, isError = false){
   statusEl.classList.toggle('error', isError);
 }
 
+function getTasksRef(){
+  return collection(db, 'users', currentUser.uid, 'tasks');
+}
+
+function getDailyCheckDocRef(date){
+  return doc(db, 'users', currentUser.uid, 'dailyChecks', date);
+}
+
+function setTaskControls(enabled){
+  taskInput.disabled = !enabled;
+  addBtn.disabled = !enabled;
+}
+
+function clearSubscriptions(){
+  if(unsubscribeTasks) unsubscribeTasks();
+  if(unsubscribeChecks) unsubscribeChecks();
+  unsubscribeTasks = null;
+  unsubscribeChecks = null;
+}
+
+function renderAuth(){
+  const loggedIn = !!currentUser;
+  loginBtn.hidden = loggedIn;
+  logoutBtn.hidden = !loggedIn;
+  userInfo.hidden = !loggedIn;
+  userInfo.textContent = loggedIn ? `${currentUser.displayName || currentUser.email} でログイン中` : '';
+}
+
+function resetUserData(){
+  tasks = [];
+  dailyChecks = {};
+  renderTasks();
+}
+
+function subscribeAuth(){
+  onAuthStateChanged(auth, user => {
+    clearSubscriptions();
+    currentUser = user;
+    renderAuth();
+    resetUserData();
+
+    if(!currentUser){
+      setTaskControls(false);
+      setStatus('ログインしてください');
+      return;
+    }
+
+    setTaskControls(true);
+    setStatus('Firebase に接続中...');
+    subscribeTasks();
+    subscribeDailyChecks();
+  });
+}
+
 function subscribeTasks(){
-  const tasksQuery = query(tasksRef, orderBy('createdAt', 'asc'));
+  if(!currentUser) return;
+  const tasksQuery = query(getTasksRef(), orderBy('createdAt', 'asc'));
   unsubscribeTasks = onSnapshot(tasksQuery, snapshot => {
     tasks = snapshot.docs.map(taskDoc => ({
       id: taskDoc.id,
@@ -73,9 +139,10 @@ function subscribeTasks(){
 }
 
 function subscribeDailyChecks(){
+  if(!currentUser) return;
   if(unsubscribeChecks) unsubscribeChecks();
 
-  const todayDocRef = doc(dailyChecksRef, currentDate);
+  const todayDocRef = getDailyCheckDocRef(currentDate);
   unsubscribeChecks = onSnapshot(todayDocRef, snapshot => {
     dailyChecks[currentDate] = snapshot.exists() ? snapshot.data() : {};
     renderTasks();
@@ -88,6 +155,7 @@ function subscribeDailyChecks(){
 
 // タスク追加（空白のみの入力を防ぐ）
 async function addTask(title){
+  if(!currentUser) return false;
   const trimmed = title.trim();
   if(!trimmed) return false;
   const id = `t-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
@@ -95,31 +163,33 @@ async function addTask(title){
     title: trimmed,
     createdAt: serverTimestamp()
   };
-  await setDoc(doc(tasksRef, id), task);
+  await setDoc(doc(getTasksRef(), id), task);
   return true;
 }
 
 // タスク削除（確認ダイアログ）
 async function deleteTask(id){
+  if(!currentUser) return;
   const task = tasks.find(t=>t.id===id);
   if(!task) return;
   const ok = confirm(`タスク「${task.title}」を削除しますか？`);
   if(!ok) return;
-  await deleteDoc(doc(tasksRef, id));
+  await deleteDoc(doc(getTasksRef(), id));
 
   const today = getToday();
   const checks = {...(dailyChecks[today] || {})};
   delete checks[id];
-  await setDoc(doc(dailyChecksRef, today), checks);
+  await setDoc(getDailyCheckDocRef(today), checks);
 }
 
 // チェックの切替
 async function toggleCheck(id){
+  if(!currentUser) return;
   const today = getToday();
   if(!dailyChecks[today]) dailyChecks[today] = {};
   dailyChecks[today][id] = !dailyChecks[today][id];
   renderTasks();
-  await setDoc(doc(dailyChecksRef, today), dailyChecks[today]);
+  await setDoc(getDailyCheckDocRef(today), dailyChecks[today]);
 }
 
 // 表示レンダリング
@@ -134,8 +204,14 @@ function renderTasks(){
   const checks = dailyChecks[currentDate] || {};
 
   taskList.innerHTML = '';
+  if(!currentUser){
+    emptyMessage.style.display = 'block';
+    emptyMessage.textContent = 'ログインするとタスクを表示できます';
+    return;
+  }
   if(tasks.length === 0){
     emptyMessage.style.display = 'block';
+    emptyMessage.textContent = 'タスクを追加してください';
     return;
   }
   emptyMessage.style.display = 'none';
@@ -191,13 +267,37 @@ function checkDateChange(){
   if(today !== currentDate){
     currentDate = today;
     renderDate();
-    subscribeDailyChecks();
+    if(currentUser) subscribeDailyChecks();
     renderTasks(); // 今日のチェック状態が切り替わる
   }
 }
 
 // イベントの紐付け
 function attachEvents(){
+  loginBtn.addEventListener('click', async ()=>{
+    loginBtn.disabled = true;
+    try{
+      await signInWithPopup(auth, provider);
+    }catch(error){
+      console.error(error);
+      setStatus('ログインに失敗しました', true);
+    }finally{
+      loginBtn.disabled = false;
+    }
+  });
+
+  logoutBtn.addEventListener('click', async ()=>{
+    logoutBtn.disabled = true;
+    try{
+      await signOut(auth);
+    }catch(error){
+      console.error(error);
+      setStatus('ログアウトに失敗しました', true);
+    }finally{
+      logoutBtn.disabled = false;
+    }
+  });
+
   addBtn.addEventListener('click', async ()=>{
     addBtn.disabled = true;
     try{
@@ -206,8 +306,8 @@ function attachEvents(){
       console.error(error);
       setStatus('タスクの追加に失敗しました', true);
     }finally{
-      addBtn.disabled = false;
-      taskInput.focus();
+      addBtn.disabled = !currentUser;
+      if(currentUser) taskInput.focus();
     }
   });
 
