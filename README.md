@@ -7,7 +7,6 @@
 - `style.css` — スタイル
 - `app.js` — 動作ロジック（Google ログイン、Firestore 保存、日付検知など）
 - `firebase-config.js` — Firebase Web アプリの設定
-- `functions/index.js` — LINE通知用の定期実行処理
 
 ## Firebase 設定
 Firebase Console:
@@ -21,27 +20,6 @@ Firebase Console:
 3. Authentication で Google ログインを有効にする。
 4. Firestore Database を作成する。
 5. Firestore ルールを `firestore.rules` の内容にする。
-
-## LINE 通知設定
-日付が変わった直後、前日に達成できなかったタスクがある場合にLINEへ通知します。
-
-1. LINE DevelopersでMessaging APIチャネルを作成する。
-2. チャネルアクセストークンを発行する。
-3. Firebase Secretにアクセストークンを保存する。
-
-```bash
-firebase functions:secrets:set LINE_CHANNEL_ACCESS_TOKEN
-```
-
-4. Cloud Functionsをデプロイする。
-
-```bash
-firebase deploy --only functions,hosting --project judgment-chain
-```
-
-5. アプリにログインし、LINE通知先IDを入力して保存する。
-
-Cloud Functionsのスケジュールは `Asia/Tokyo` の毎日 `00:00` です。通知済みの日付は `users/{uid}/notifications/line-{YYYY-MM-DD}` に保存し、重複送信を防ぎます。
 
 ログインユーザーだけが自分のデータを読み書きできる Firestore ルールは `firestore.rules` にあります。
 
@@ -81,8 +59,6 @@ python3 -m http.server 8000
 ## データ設計（Firestore）
 - `users/{uid}/tasks/{taskId}`: タスク名と作成日時
 - `users/{uid}/dailyChecks/{YYYY-MM-DD}`: タスクID -> boolean
-- `users/{uid}/settings/line`: LINE通知先IDと有効状態
-- `users/{uid}/notifications/line-{YYYY-MM-DD}`: LINE通知の送信履歴
 
 ## 注意点
 - 以前の共有データ構造 `tasks` / `dailyChecks` は使わず、ログインユーザーごとの `users/{uid}` 配下に保存します。

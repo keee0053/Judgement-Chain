@@ -35,9 +35,6 @@ const statusEl = document.getElementById('status');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userInfo = document.getElementById('userInfo');
-const lineArea = document.getElementById('lineArea');
-const lineUserIdInput = document.getElementById('lineUserIdInput');
-const saveLineBtn = document.getElementById('saveLineBtn');
 
 // アプリの状態
 let tasks = [];
@@ -47,7 +44,6 @@ let currentUser = null;
 let unsubscribeTasks = null;
 let unsubscribeChecks = null;
 let unsubscribePreviousChecks = null;
-let unsubscribeLineSettings = null;
 
 // 初期化
 function init(){
@@ -102,10 +98,6 @@ function getDailyCheckDocRef(date){
   return doc(db, 'users', currentUser.uid, 'dailyChecks', date);
 }
 
-function getLineSettingsRef(){
-  return doc(db, 'users', currentUser.uid, 'settings', 'line');
-}
-
 function setTaskControls(enabled){
   taskInput.disabled = !enabled;
   addBtn.disabled = !enabled;
@@ -115,11 +107,9 @@ function clearSubscriptions(){
   if(unsubscribeTasks) unsubscribeTasks();
   if(unsubscribeChecks) unsubscribeChecks();
   if(unsubscribePreviousChecks) unsubscribePreviousChecks();
-  if(unsubscribeLineSettings) unsubscribeLineSettings();
   unsubscribeTasks = null;
   unsubscribeChecks = null;
   unsubscribePreviousChecks = null;
-  unsubscribeLineSettings = null;
 }
 
 function renderAuth(){
@@ -127,9 +117,7 @@ function renderAuth(){
   loginBtn.hidden = loggedIn;
   logoutBtn.hidden = !loggedIn;
   userInfo.hidden = !loggedIn;
-  lineArea.hidden = !loggedIn;
   userInfo.textContent = loggedIn ? `${currentUser.displayName || currentUser.email} でログイン中` : '';
-  if(!loggedIn) lineUserIdInput.value = '';
 }
 
 function resetUserData(){
@@ -156,7 +144,6 @@ function subscribeAuth(){
     subscribeTasks();
     subscribeDailyChecks();
     subscribePreviousDailyChecks();
-    subscribeLineSettings();
   });
 }
 
@@ -204,29 +191,6 @@ function subscribePreviousDailyChecks(){
     console.error(error);
     setStatus('前日のチェック状態の読み込みに失敗しました', true);
   });
-}
-
-function subscribeLineSettings(){
-  if(!currentUser) return;
-  if(unsubscribeLineSettings) unsubscribeLineSettings();
-
-  unsubscribeLineSettings = onSnapshot(getLineSettingsRef(), snapshot => {
-    const settings = snapshot.exists() ? snapshot.data() : {};
-    lineUserIdInput.value = settings.userId || '';
-  }, error => {
-    console.error(error);
-    setStatus('LINE通知設定の読み込みに失敗しました', true);
-  });
-}
-
-async function saveLineSettings(){
-  if(!currentUser) return;
-  const userId = lineUserIdInput.value.trim();
-  await setDoc(getLineSettingsRef(), {
-    enabled: !!userId,
-    userId,
-    updatedAt: serverTimestamp()
-  }, {merge: true});
 }
 
 // タスク追加（空白のみの入力を防ぐ）
@@ -418,19 +382,6 @@ function attachEvents(){
       setStatus('ログアウトに失敗しました', true);
     }finally{
       logoutBtn.disabled = false;
-    }
-  });
-
-  saveLineBtn.addEventListener('click', async ()=>{
-    saveLineBtn.disabled = true;
-    try{
-      await saveLineSettings();
-      setStatus('LINE通知設定を保存しました');
-    }catch(error){
-      console.error(error);
-      setStatus('LINE通知設定の保存に失敗しました', true);
-    }finally{
-      saveLineBtn.disabled = false;
     }
   });
 

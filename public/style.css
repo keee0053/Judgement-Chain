@@ -16,7 +16,6 @@ body{font-family:system-ui,-apple-system,Helvetica,Arial;padding:16px;background
 .user-info{flex:1;color:var(--muted);font-size:.9rem;overflow-wrap:anywhere}
 .login-btn{background:#111}
 .logout-btn,.delete-btn{background:#eee;color:#111}
-.line-area{display:flex;gap:8px;margin:16px 0}
 .input-area{display:flex;gap:8px;margin:16px 0}
 input[type="text"]{flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem}
 input[type="text"]:disabled{background:#f2f2f2;color:var(--muted)}
@@ -38,7 +37,6 @@ button:active{transform:translateY(1px)}
 @media (max-width:480px){
   .header h1{font-size:1rem}
   .auth-area{align-items:stretch;flex-direction:column}
-  .line-area{flex-direction:column}
   .user-info{text-align:center}
   input[type="text"]{padding:8px}
   button{padding:8px}
