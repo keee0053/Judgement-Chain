@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>毎日チェックリスト</title>
-  <link rel="stylesheet" href="style.css?v=tasks2" />
+  <link rel="stylesheet" href="style.css?v=line1" />
 </head>
 <body>
   <main class="container">
@@ -22,6 +22,11 @@
       <button id="logoutBtn" class="logout-btn" type="button" hidden>ログアウト</button>
     </section>
 
+    <section id="lineArea" class="line-area" hidden>
+      <input id="lineUserIdInput" type="text" aria-label="LINE通知先ユーザーID" placeholder="LINE通知先IDを入力" />
+      <button id="saveLineBtn" type="button">LINE通知を保存</button>
+    </section>
+
     <section class="input-area">
       <input id="taskInput" type="text" aria-label="タスク名入力" placeholder="タスク名を入力" />
       <button id="addBtn" aria-label="タスクを追加">追加</button>
@@ -33,6 +38,6 @@
     </section>
   </main>
 
-  <script type="module" src="app.js?v=tasks2"></script>
+  <script type="module" src="app.js?v=line1"></script>
 </body>
 </html>
