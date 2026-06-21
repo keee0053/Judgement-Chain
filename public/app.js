@@ -272,6 +272,9 @@ function renderTasks(){
   const sortedTasks = [...tasks].sort((a, b) => {
     const aDone = !!checks[a.id];
     const bDone = !!checks[b.id];
+    const aMissed = !aDone && getTaskCreatedDate(a) < currentDate && previousChecks[a.id] !== true;
+    const bMissed = !bDone && getTaskCreatedDate(b) < currentDate && previousChecks[b.id] !== true;
+    if(aMissed !== bMissed) return aMissed ? -1 : 1;
     if(aDone !== bDone) return aDone ? 1 : -1;
     return 0;
   });
