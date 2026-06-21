@@ -28,7 +28,10 @@ button:active{transform:translateY(1px)}
 .task-item:last-child{border-bottom:none}
 .task-title{flex:1}
 .task-title.done{text-decoration:line-through;color:var(--muted)}
-.delete-btn{border:none;padding:6px 8px;border-radius:6px;cursor:pointer}
+.task-item.missed .task-title{color:#c62828;font-weight:600}
+.task-item.completed{background:#fafafa}
+.edit-btn,.delete-btn{border:none;padding:6px 8px;border-radius:6px;cursor:pointer}
+.edit-btn{background:#eef4ff;color:#174ea6}
 .empty{color:var(--muted);padding:12px;text-align:center}
 
 @media (max-width:480px){
